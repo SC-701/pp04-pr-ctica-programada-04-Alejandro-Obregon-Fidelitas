@@ -1,11 +1,15 @@
-using Abstracciones.Interfaces.Reglas;
+﻿using Abstracciones.Interfaces.Reglas;
 using Abstracciones.Modelos;
+using Abstracciones.Modelos.Servicios;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Runtime.Intrinsics.Arm;
 using System.Text.Json;
 
 namespace Web.Pages.Vehiculos
 {
+    [Authorize(Roles = "1")]
     public class IndexModel : PageModel
     {
         private readonly IConfiguracion _configuracion;
@@ -19,7 +23,7 @@ namespace Web.Pages.Vehiculos
         public async Task OnGet()
         {
             string endpoint = _configuracion.ObtenerMetodo("ApiEndPoints", "ObtenerVehiculos");
-            var cliente = new HttpClient();
+            using var cliente = ObtenerClienteConToken();
             var solicitud = new HttpRequestMessage(HttpMethod.Get, endpoint);
 
             var respuesta = await cliente.SendAsync(solicitud);
@@ -28,6 +32,18 @@ namespace Web.Pages.Vehiculos
             var opciones = new JsonSerializerOptions
                 {PropertyNameCaseInsensitive = true};
             vehiculos = JsonSerializer.Deserialize<List<VehiculoResponse>>(resultado, opciones);
+        }
+
+        private HttpClient ObtenerClienteConToken()
+        {
+            var tokenClaim = HttpContext.User.Claims
+                .FirstOrDefault(c => c.Type == "Token");
+            var cliente = new HttpClient();
+            if (tokenClaim != null)
+                cliente.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue(
+                        "Bearer", tokenClaim.Value);
+            return cliente;
         }
     }
 }
